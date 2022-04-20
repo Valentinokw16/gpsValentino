@@ -1,0 +1,93 @@
+package com.example.gpsvalentino;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.Bundle;
+import android.service.autofill.FieldClassification;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
+import android.widget.ImageView;
+
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
+
+    private ImageView imageView;
+    private float[] gravitasi = new float[3];
+    private float[] magnetik = new float[3];
+    private float azimut = 0f;
+    private float azimutSaatIni = 0f;
+    private SensorManager menejerSensor;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        imageView = findViewById(R.id.kompass);
+        menejerSensor = (SensorManager)getSystemService(SENSOR_SERVICE);
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        menejerSensor.registerListener(this, menejerSensor.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                SensorManager.SENSOR_DELAY_GAME);
+        menejerSensor.registerListener(this, menejerSensor.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                SensorManager.SENSOR_DELAY_GAME);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        menejerSensor.unregisterListener(this);
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        final float alpha = 0.97f;
+        synchronized (this){
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+                gravitasi[0] = alpha*gravitasi[0]+(1-alpha)*event.values[0];
+                gravitasi[1] = alpha*gravitasi[1]+(1-alpha)*event.values[1];
+                gravitasi[2] = alpha*gravitasi[2]+(1-alpha)*event.values[2];
+            }
+
+            if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+            {
+                magnetik[0] = alpha*magnetik[0]+(1-alpha)*event.values[0];
+                magnetik[1] = alpha*magnetik[1]+(1-alpha)*event.values[1];
+                magnetik[2] = alpha*magnetik[2]+(1-alpha)*event.values[2];
+            }
+
+            float R[] = new float[9];
+            float I[] = new float[9];
+            boolean success = SensorManager.getRotationMatrix(R,I,gravitasi,magnetik);
+            if (success)
+            {
+                float orentasi[] = new float[3];
+                SensorManager.getOrientation(R,orentasi);
+                azimut = (float) Math.toDegrees(orentasi[0]);
+                azimut = (azimut + 360)%360;
+
+
+                Animation animation = new RotateAnimation(-azimutSaatIni,-azimut,Animation.RELATIVE_TO_SELF,0.5f,Animation.RELATIVE_TO_SELF,0.5f);
+                azimutSaatIni = azimut;
+
+                animation.setDuration(500);
+                animation.setRepeatCount(0);
+                animation.setFillAfter(true);
+
+                imageView.startAnimation(animation);
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
+}
